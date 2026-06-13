@@ -7,8 +7,9 @@ const { Pool } = require("pg");
 // Active pool — set to either real Supabase or in-memory pg-mem
 let _pool = null;
 
-// Resolves once the pool is ready and schema is initialized
-const _poolReady = (async () => {
+// Resolves once the DB connection is established (does NOT wait for schema init).
+// Schema init runs in the background so queries aren't blocked by it.
+const _connectionReady = (async () => {
   if (process.env.SUPABASE_DB_URL) {
     try {
       const realPool = new Pool({
@@ -32,8 +33,12 @@ const _poolReady = (async () => {
     console.log("ℹ️  No SUPABASE_DB_URL — using in-memory database");
     _pool = createMemPool();
   }
-  await initializeSchema(_pool);
 })();
+
+// Schema init runs in the background — does not block incoming requests
+_connectionReady.then(() => initializeSchema(_pool)).catch((e) => {
+  console.error("❌ Schema init error:", e && e.message ? e.message : e);
+});
 
 function createMemPool() {
   let pgMem;
@@ -52,7 +57,11 @@ function createMemPool() {
 }
 
 async function getPool() {
-  await _poolReady;
+  // Wait for connection with a 6-second safety cap so no query hangs indefinitely
+  const timeout = new Promise((_, reject) =>
+    setTimeout(() => reject(new Error("Database not ready (connection timeout)")), 6000)
+  );
+  await Promise.race([_connectionReady, timeout]);
   return _pool;
 }
 
