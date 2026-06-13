@@ -449,17 +449,15 @@ RULES:
   } catch (error) {
     console.error("[Chat] Error:", error.message);
 
-    if (error.status === 401) {
-      // API key invalid — fall back to rule-based silently
-      try {
-        const { messages } = req.body;
-        const trimmedMessages = (messages || []).slice(-20);
-        const lastUserMsg = [...trimmedMessages].reverse().find(m => m.role === "user")?.content || "";
-        const reply = findBestReply(lastUserMsg, null);
-        return res.json({ reply });
-      } catch (fallbackErr) {
-        console.error("[Chat] Fallback error:", fallbackErr.message);
-      }
+    // Any failure (API error, wrong model, network, etc.) — always try rule-based fallback
+    try {
+      const { messages } = req.body;
+      const trimmedMessages = (messages || []).slice(-20);
+      const lastUserMsg = [...trimmedMessages].reverse().find(m => m.role === "user")?.content || "";
+      const reply = findBestReply(lastUserMsg, null);
+      return res.json({ reply });
+    } catch (fallbackErr) {
+      console.error("[Chat] Fallback error:", fallbackErr.message);
     }
 
     res.status(500).json({ message: "The assistant is temporarily unavailable. Please try again in a moment." });
