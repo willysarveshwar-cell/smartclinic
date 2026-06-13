@@ -69,6 +69,17 @@ if (require.main === module) {
   });
 
   const PORT = process.env.PORT || 5000;
+  server.on("error", (err) => {
+    if (err.code === "EADDRINUSE") {
+      console.error(
+        `Port ${PORT} is already in use. Stop the other server or set PORT to a different value.`
+      );
+    } else {
+      console.error("Server error:", err);
+    }
+    process.exit(1);
+  });
+
   server.listen(PORT, () => {
     console.log(`🚀 Server running on http://localhost:${PORT}`);
   });
