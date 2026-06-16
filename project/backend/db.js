@@ -474,4 +474,6 @@ async function initializeSchema(pool) {
   }
 }
 
+db.usesRealPool = () => _usesRealPool;
+
 module.exports = db;

@@ -34,12 +34,11 @@ app.get("/api", (req, res) => {
 // DB diagnostic endpoint
 app.get("/api/health", async (req, res) => {
   const dbUrl = process.env.SUPABASE_DB_URL;
-  if (!dbUrl) {
-    return res.status(500).json({ ok: false, error: "SUPABASE_DB_URL environment variable is not set" });
-  }
   try {
-    const rows = await db.queryAsync("SELECT 1 AS ok");
-    res.json({ ok: true, db: "connected", rows });
+    const [check] = await db.queryAsync("SELECT 1 AS ok");
+    const doctors = await db.queryAsync("SELECT COUNT(*) AS cnt FROM doctors");
+    const doctorCount = doctors[0] ? (doctors[0].cnt || doctors[0].count || 0) : 0;
+    res.json({ ok: true, db: dbUrl ? "supabase-url-set" : "no-url", doctorCount, usesRealPool: db.usesRealPool() });
   } catch (err) {
     res.status(500).json({ ok: false, error: err.message });
   }
