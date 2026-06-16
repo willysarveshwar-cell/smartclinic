@@ -31,6 +31,9 @@ const _connectionReady = (async () => {
       await ensureColumn(realPool, "appointments", "reminder_notified_at", "TIMESTAMP");
       await ensureColumn(realPool, "appointments", "missed_notified_at", "TIMESTAMP");
       await ensureColumn(realPool, "doctors", "avg_consultation_minutes", "INTEGER DEFAULT 15");
+      // Seed essential demo doctors if not yet present (idempotent, non-fatal)
+      await realPool.query(`INSERT INTO doctors (name, specialization, email, password) VALUES ('Dr. John Doe', 'General Medicine', 'doctor@example.com', 'password123') ON CONFLICT DO NOTHING`).catch(() => {});
+      await realPool.query(`INSERT INTO doctors (name, specialization, email, password) VALUES ('Default Doctor', 'General Medicine', 'doctor@clinic.com', '123456') ON CONFLICT DO NOTHING`).catch(() => {});
       console.log("✅ Supabase PostgreSQL Connected Successfully");
     } catch (err) {
       const shortMsg = (err.message || "").split("\n")[0];
