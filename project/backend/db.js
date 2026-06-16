@@ -22,6 +22,20 @@ const _connectionReady = (async () => {
       client.release();
       _pool = realPool;
       _usesRealPool = true;
+      // Create the doctors table synchronously so seeds below always succeed
+      await realPool.query(`
+        CREATE TABLE IF NOT EXISTS doctors (
+          id SERIAL PRIMARY KEY,
+          name VARCHAR(100) NOT NULL,
+          specialization VARCHAR(100) NOT NULL,
+          email VARCHAR(255) UNIQUE NOT NULL,
+          password VARCHAR(255) NOT NULL,
+          avg_consultation_minutes INTEGER DEFAULT 15
+        )
+      `).catch(() => {});
+      // Seed essential doctors synchronously (idempotent)
+      await realPool.query(`INSERT INTO doctors (name, specialization, email, password) VALUES ('Dr. John Doe', 'General Medicine', 'doctor@example.com', 'password123') ON CONFLICT DO NOTHING`).catch(() => {});
+      await realPool.query(`INSERT INTO doctors (name, specialization, email, password) VALUES ('Default Doctor', 'General Medicine', 'doctor@clinic.com', '123456') ON CONFLICT DO NOTHING`).catch(() => {});
       // Synchronously ensure critical columns exist before any query runs
       await ensureColumn(realPool, "patients", "date_of_birth", "DATE");
       await ensureColumn(realPool, "patients", "gender", "VARCHAR(10)");
@@ -29,9 +43,6 @@ const _connectionReady = (async () => {
       await ensureColumn(realPool, "appointments", "reminder_notified_at", "TIMESTAMP");
       await ensureColumn(realPool, "appointments", "missed_notified_at", "TIMESTAMP");
       await ensureColumn(realPool, "doctors", "avg_consultation_minutes", "INTEGER DEFAULT 15");
-      // Seed essential doctors synchronously (idempotent, non-fatal if table missing)
-      await realPool.query(`INSERT INTO doctors (name, specialization, email, password) VALUES ('Dr. John Doe', 'General Medicine', 'doctor@example.com', 'password123') ON CONFLICT DO NOTHING`).catch(() => {});
-      await realPool.query(`INSERT INTO doctors (name, specialization, email, password) VALUES ('Default Doctor', 'General Medicine', 'doctor@clinic.com', '123456') ON CONFLICT DO NOTHING`).catch(() => {});
       console.log("✅ Supabase PostgreSQL Connected Successfully");
     } catch (err) {
       const shortMsg = (err.message || "").split("\n")[0];
