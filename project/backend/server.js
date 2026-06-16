@@ -38,7 +38,7 @@ app.get("/api/health", async (req, res) => {
     const [check] = await db.queryAsync("SELECT 1 AS ok");
     const doctors = await db.queryAsync("SELECT COUNT(*) AS cnt FROM doctors");
     const doctorCount = doctors[0] ? (doctors[0].cnt || doctors[0].count || 0) : 0;
-    res.json({ ok: true, db: dbUrl ? "supabase-url-set" : "no-url", doctorCount, usesRealPool: db.usesRealPool() });
+    res.json({ ok: true, db: dbUrl ? "supabase-url-set" : "no-url", doctorCount, usesRealPool: db.usesRealPool(), connError: db.connectionError() });
   } catch (err) {
     res.status(500).json({ ok: false, error: err.message });
   }

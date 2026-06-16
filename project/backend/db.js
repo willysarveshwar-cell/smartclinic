@@ -7,17 +7,36 @@ const { Pool } = require("pg");
 // Active pool — set to either real Supabase or in-memory pg-mem
 let _pool = null;
 let _usesRealPool = false;
+let _connectionError = null;
+
+function buildPoolConfig() {
+  // Prefer individual params to avoid URL %40-encoding issues with @ in passwords
+  if (process.env.DB_HOST) {
+    return {
+      host: process.env.DB_HOST,
+      port: parseInt(process.env.DB_PORT || "5432"),
+      user: process.env.DB_USER,
+      password: process.env.DB_PASSWORD,
+      database: process.env.DB_NAME || "postgres",
+      ssl: { rejectUnauthorized: false },
+      connectionTimeoutMillis: 8000,
+      idleTimeoutMillis: 30000,
+      max: 10,
+    };
+  }
+  return {
+    connectionString: process.env.SUPABASE_DB_URL,
+    ssl: { rejectUnauthorized: false },
+    connectionTimeoutMillis: 8000,
+    idleTimeoutMillis: 30000,
+    max: 10,
+  };
+}
 
 const _connectionReady = (async () => {
-  if (process.env.SUPABASE_DB_URL) {
+  if (process.env.SUPABASE_DB_URL || process.env.DB_HOST) {
     try {
-      const realPool = new Pool({
-        connectionString: process.env.SUPABASE_DB_URL,
-        ssl: { rejectUnauthorized: false },
-        connectionTimeoutMillis: 5000,
-        idleTimeoutMillis: 30000,
-        max: 10,
-      });
+      const realPool = new Pool(buildPoolConfig());
       const client = await realPool.connect();
       client.release();
       _pool = realPool;
@@ -46,6 +65,7 @@ const _connectionReady = (async () => {
       console.log("✅ Supabase PostgreSQL Connected Successfully");
     } catch (err) {
       const shortMsg = (err.message || "").split("\n")[0];
+      _connectionError = shortMsg;
       console.warn(`⚠️  Supabase unreachable (${shortMsg})`);
       console.log("🔄 Switching to in-memory database for local development...");
       _pool = createMemPool();
@@ -53,7 +73,7 @@ const _connectionReady = (async () => {
       await initializeSchema(_pool);
     }
   } else {
-    console.log("ℹ️  No SUPABASE_DB_URL — using in-memory database");
+    console.log("ℹ️  No SUPABASE_DB_URL or DB_HOST — using in-memory database");
     _pool = createMemPool();
     // For pg-mem: run schema init synchronously so tables/seed exist before first query
     await initializeSchema(_pool);
@@ -475,5 +495,6 @@ async function initializeSchema(pool) {
 }
 
 db.usesRealPool = () => _usesRealPool;
+db.connectionError = () => _connectionError;
 
 module.exports = db;
