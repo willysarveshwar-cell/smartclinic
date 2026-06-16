@@ -76,24 +76,19 @@ function validateNoOverlap(slots) {
 /* ================================
    GET ALL DOCTORS
 ================================ */
-router.get("/", (req, res) => {
-  const search = (req.query.search || "").trim().toLowerCase();
-
-  const sql = `
-    SELECT id as doctorId, name, specialization, email
-    FROM doctors
-    ${search ? "WHERE LOWER(name) LIKE ? OR LOWER(specialization) LIKE ? OR LOWER(email) LIKE ?" : ""}
-  `;
-
-  const params = search ? [`%${search}%`, `%${search}%`, `%${search}%`] : [];
-
-  db.query(sql, params, (err, results) => {
-    if (err) {
-      console.error("❌ Get doctors SQL error:", err.message);
-      return res.status(500).json({ message: "Database error" });
-    }
+router.get("/", async (req, res) => {
+  try {
+    const search = (req.query.search || "").trim().toLowerCase();
+    const sql = search
+      ? `SELECT id as doctorId, name, specialization, email FROM doctors WHERE LOWER(name) LIKE ? OR LOWER(specialization) LIKE ? OR LOWER(email) LIKE ? ORDER BY name`
+      : `SELECT id as doctorId, name, specialization, email FROM doctors ORDER BY name`;
+    const params = search ? [`%${search}%`, `%${search}%`, `%${search}%`] : [];
+    const results = await db.queryAsync(sql, params);
     res.json(results);
-  });
+  } catch (err) {
+    console.error("❌ Get doctors error:", err.message);
+    res.status(500).json({ message: "Database error", detail: err.message });
+  }
 });
 
 /* ================================
