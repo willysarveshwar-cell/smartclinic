@@ -22,6 +22,15 @@ const _connectionReady = (async () => {
       const client = await realPool.connect();
       client.release();
       _pool = realPool;
+      // Synchronously ensure critical columns that routes depend on.
+      // This runs before any request handler executes, preventing "column does not exist" errors
+      // on existing Supabase tables that predate these columns being added to CREATE TABLE.
+      await ensureColumn(realPool, "patients", "date_of_birth", "DATE");
+      await ensureColumn(realPool, "patients", "gender", "VARCHAR(10)");
+      await ensureColumn(realPool, "patients", "needs_follow_up", "SMALLINT DEFAULT 0");
+      await ensureColumn(realPool, "appointments", "reminder_notified_at", "TIMESTAMP");
+      await ensureColumn(realPool, "appointments", "missed_notified_at", "TIMESTAMP");
+      await ensureColumn(realPool, "doctors", "avg_consultation_minutes", "INTEGER DEFAULT 15");
       console.log("✅ Supabase PostgreSQL Connected Successfully");
     } catch (err) {
       const shortMsg = (err.message || "").split("\n")[0];
@@ -224,6 +233,8 @@ async function initializeSchema(pool) {
         phone VARCHAR(30),
         ic_number VARCHAR(30) UNIQUE NOT NULL,
         password VARCHAR(255) NOT NULL,
+        date_of_birth DATE,
+        gender VARCHAR(10),
         needs_follow_up SMALLINT DEFAULT 0,
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
       )
