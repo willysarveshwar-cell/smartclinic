@@ -6,9 +6,8 @@ const { Pool } = require("pg");
 
 // Active pool — set to either real Supabase or in-memory pg-mem
 let _pool = null;
+let _usesRealPool = false;
 
-// Resolves once the DB connection is established (does NOT wait for schema init).
-// Schema init runs in the background so queries aren't blocked by it.
 const _connectionReady = (async () => {
   if (process.env.SUPABASE_DB_URL) {
     try {
@@ -22,16 +21,15 @@ const _connectionReady = (async () => {
       const client = await realPool.connect();
       client.release();
       _pool = realPool;
-      // Synchronously ensure critical columns that routes depend on.
-      // This runs before any request handler executes, preventing "column does not exist" errors
-      // on existing Supabase tables that predate these columns being added to CREATE TABLE.
+      _usesRealPool = true;
+      // Synchronously ensure critical columns exist before any query runs
       await ensureColumn(realPool, "patients", "date_of_birth", "DATE");
       await ensureColumn(realPool, "patients", "gender", "VARCHAR(10)");
       await ensureColumn(realPool, "patients", "needs_follow_up", "SMALLINT DEFAULT 0");
       await ensureColumn(realPool, "appointments", "reminder_notified_at", "TIMESTAMP");
       await ensureColumn(realPool, "appointments", "missed_notified_at", "TIMESTAMP");
       await ensureColumn(realPool, "doctors", "avg_consultation_minutes", "INTEGER DEFAULT 15");
-      // Seed essential demo doctors if not yet present (idempotent, non-fatal)
+      // Seed essential doctors synchronously (idempotent, non-fatal if table missing)
       await realPool.query(`INSERT INTO doctors (name, specialization, email, password) VALUES ('Dr. John Doe', 'General Medicine', 'doctor@example.com', 'password123') ON CONFLICT DO NOTHING`).catch(() => {});
       await realPool.query(`INSERT INTO doctors (name, specialization, email, password) VALUES ('Default Doctor', 'General Medicine', 'doctor@clinic.com', '123456') ON CONFLICT DO NOTHING`).catch(() => {});
       console.log("✅ Supabase PostgreSQL Connected Successfully");
@@ -40,16 +38,24 @@ const _connectionReady = (async () => {
       console.warn(`⚠️  Supabase unreachable (${shortMsg})`);
       console.log("🔄 Switching to in-memory database for local development...");
       _pool = createMemPool();
+      // For pg-mem fallback: run schema init synchronously so tables exist before first query
+      await initializeSchema(_pool);
     }
   } else {
     console.log("ℹ️  No SUPABASE_DB_URL — using in-memory database");
     _pool = createMemPool();
+    // For pg-mem: run schema init synchronously so tables/seed exist before first query
+    await initializeSchema(_pool);
   }
 })();
 
-// Schema init runs in the background — does not block incoming requests
-_connectionReady.then(() => initializeSchema(_pool)).catch((e) => {
-  console.error("❌ Schema init error:", e && e.message ? e.message : e);
+// For Supabase only: run full schema init in background (CREATE TABLE, indexes, seeds)
+_connectionReady.then(() => {
+  if (_usesRealPool) {
+    initializeSchema(_pool).catch((e) => {
+      console.error("❌ Schema init error:", e && e.message ? e.message : e);
+    });
+  }
 });
 
 function createMemPool() {
