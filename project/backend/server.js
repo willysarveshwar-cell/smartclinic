@@ -45,28 +45,6 @@ app.get("/api/health", async (req, res) => {
   }
 });
 
-// One-time DB seed endpoint — seeds default doctors and admin user
-app.get("/api/seed", async (req, res) => {
-  const { hashPassword } = require("./utils/security");
-  try {
-    const adminHash = await hashPassword("admin123");
-    const doc1Hash  = await hashPassword("password123");
-    const doc2Hash  = await hashPassword("123456");
-
-    await db.queryAsync(`INSERT INTO doctors (name, specialization, email, password, avg_consultation_minutes) VALUES ('Dr. John Doe', 'General Medicine', 'doctor@example.com', $1, 15) ON CONFLICT (email) DO NOTHING`, [doc1Hash]);
-    await db.queryAsync(`INSERT INTO doctors (name, specialization, email, password, avg_consultation_minutes) VALUES ('Dr. Sarah Lee', 'Paediatrics', 'doctor@clinic.com', $1, 15) ON CONFLICT (email) DO NOTHING`, [doc2Hash]);
-
-    await db.queryAsync(`INSERT INTO users (fullName, email, password, role, email_verified) VALUES ('Admin User', 'admin@clinic.com', $1, 'Admin', 1) ON CONFLICT (email) DO NOTHING`, [adminHash]);
-    await db.queryAsync(`INSERT INTO users (fullName, email, password, role, email_verified) VALUES ('Dr. John Doe', 'doctor@example.com', $1, 'Doctor', 1) ON CONFLICT (email) DO NOTHING`, [doc1Hash]);
-    await db.queryAsync(`INSERT INTO users (fullName, email, password, role, email_verified) VALUES ('Dr. Sarah Lee', 'doctor@clinic.com', $1, 'Doctor', 1) ON CONFLICT (email) DO NOTHING`, [doc2Hash]);
-
-    const doctors = await db.queryAsync("SELECT id, name, specialization, email FROM doctors ORDER BY id");
-    res.json({ ok: true, message: "Database seeded", doctors });
-  } catch (err) {
-    res.status(500).json({ ok: false, error: err.message });
-  }
-});
-
 // Global error handler
 app.use((error, req, res, next) => {
   console.error("Unhandled error:", error);
