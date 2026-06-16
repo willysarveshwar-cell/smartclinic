@@ -54,7 +54,7 @@ function bookAppointment() {
     return;
   }
 
-  fetch("http://localhost:5000/api/appointments", {
+  fetch("/api/appointments", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({
@@ -126,7 +126,7 @@ function loadDoctors() {
   // Keep time dropdown usable even if doctor API is slow/unavailable.
   buildDefaultTimeOptions();
 
-  fetch("http://localhost:5000/api/doctors")
+  fetch("/api/doctors")
     .then(res => res.json())
     .then(data => {
       data.forEach(doctor => {
@@ -154,7 +154,7 @@ function loadAvailableSlotsHint() {
 
   if (!doctorId || !date) return;
 
-  fetch(`http://localhost:5000/api/appointments/slots?doctor_id=${doctorId}&date=${date}`)
+  fetch(`/api/appointments/slots?doctor_id=${doctorId}&date=${date}`)
     .then(res => res.json())
     .then(data => {
       const slots = Array.isArray(data.slots) ? data.slots : [];
@@ -228,7 +228,7 @@ function loadQueue() {
   const queueList = document.getElementById("queueList");
   if (!queueList) return;
 
-  fetch("http://localhost:5000/api/queue")
+  fetch("/api/queue")
     .then(res => res.json())
     .then(data => {
       queueList.innerHTML = "";
