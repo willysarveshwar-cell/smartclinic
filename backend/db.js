@@ -117,7 +117,7 @@ async function initializeSchema() {
       checked_in_at DATETIME,
       started_at DATETIME,
       completed_at DATETIME,
-      created_at TEXT DEFAULT CURRENT_TIMESTAMP,
+      created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
       updated_at DATETIME,
       UNIQUE KEY uq_checkin (appointment_date, check_in_token),
       FOREIGN KEY (doctor_id) REFERENCES doctors(id)
